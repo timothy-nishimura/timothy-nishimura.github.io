@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Le Robot François — Timothy Nishimura</title>
+  <meta name="description" content="How I turned a ManyChat French vocabulary chatbot into a lightweight custom GPT in the OpenAI store." />
+  <meta property="og:title" content="Le Robot François — Timothy Nishimura" />
+  <meta property="og:description" content="From ManyChat to the GPT Store. A case study in architectural simplicity." />
+  <meta property="og:type" content="article" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300;1,6..72,400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink: #1c1c1e;
+      --ink-mid: #4a4a50;
+      --ink-soft: #8e8e94;
+      --paper: #f4f2ee;
+      --paper-warm: #ebe7e0;
+      --rule: #d8d4cc;
+      --blue: #5b8db8;
+      --blue-light: #dce9f5;
+      --blue-deep: #2d5a84;
+      /* French flag accent palette */
+      --fr-red: #c0392b;
+      --fr-red-light: #faeaea;
+      --mono: 'DM Mono', monospace;
+      --serif: 'DM Serif Display', Georgia, serif;
+      --body: 'Newsreader', Georgia, serif;
+    }
+
+    html { font-size: 16px; scroll-behavior: smooth; }
+
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--body);
+      line-height: 1.7;
+      min-height: 100vh;
+      cursor: none;
+    }
+
+    #cursor {
+      position: fixed;
+      top: 0; left: 0;
+      width: 10px; height: 10px;
+      background: var(--blue);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
+      transition: width 0.2s, height 0.2s;
+      mix-blend-mode: multiply;
+    }
+    #cursor.hover { width: 30px; height: 30px; opacity: 0.4; }
+
+    .wrapper { max-width: 720px; margin: 0 auto; padding: 0 2rem; }
+    .wrapper--narrow { max-width: 640px; margin: 0 auto; padding: 0 2rem; }
+
+    /* Header */
+    header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 1.25rem 0;
+      background: var(--paper);
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.3s;
+    }
+    header.scrolled { border-color: var(--rule); }
+    header .wrapper { display: flex; align-items: center; justify-content: space-between; }
+
+    .wordmark {
+      font-family: var(--mono);
+      font-size: 0.8125rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    nav { display: flex; gap: 2rem; }
+    nav a {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink-mid);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    nav a:hover { color: var(--blue); }
+
+    /* ── FEATURED PROJECT CARD ── */
+    .project-card-section {
+      padding: 10rem 0 0;
+    }
+
+    .post-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      text-decoration: none;
+      margin-bottom: 2.5rem;
+      transition: color 0.2s;
+    }
+    .post-back:hover { color: var(--blue); }
+
+    /* The card itself */
+    .project-card {
+      background: var(--ink);
+      border-radius: 6px;
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: 380px;
+      position: relative;
+    }
+
+    /* Left: visual panel */
+    .card-visual {
+      background: linear-gradient(135deg, #1a2744 0%, #0f1e38 100%);
+      padding: 2.75rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* French flag stripe — decorative top bar */
+    .card-visual::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #002395 33.3%, #fff 33.3% 66.6%, #ed2939 66.6%);
+    }
+
+    /* Background pattern — subtle grid */
+    .card-visual::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(91,141,184,0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(91,141,184,0.06) 1px, transparent 1px);
+      background-size: 32px 32px;
+      pointer-events: none;
+    }
+
+    .card-visual-top { position: relative; z-index: 1; }
+    .card-visual-bottom { position: relative; z-index: 1; }
+
+    .card-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.75rem;
+      display: block;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.3));
+    }
+
+    .card-project-name {
+      font-family: var(--serif);
+      font-size: 1.5rem;
+      color: #fff;
+      font-style: italic;
+      line-height: 1.2;
+    }
+
+    .card-stat-row {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    .card-stat { }
+    .card-stat-num {
+      font-family: var(--mono);
+      font-size: 1.25rem;
+      color: #fff;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+    }
+    .card-stat-label {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      margin-top: 1px;
+    }
+
+    /* Right: info panel */
+    .card-info {
+      background: #fff;
+      padding: 2.5rem 2.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .card-meta {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .card-chip {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 100px;
+      border: 1px solid var(--rule);
+      color: var(--ink-mid);
+    }
+
+    .card-chip.live {
+      background: #e8f8ef;
+      border-color: #6fcf97;
+      color: #1a6b3a;
+    }
+
+    .card-headline {
+      font-family: var(--serif);
+      font-size: 1.375rem;
+      color: var(--ink);
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+    }
+
+    .card-desc {
+      font-size: 0.9375rem;
+      color: var(--ink-mid);
+      line-height: 1.7;
+    }
+
+    .card-stack {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+
+    .stack-tag {
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--blue-deep);
+      background: var(--blue-light);
+      padding: 2px 8px;
+      border-radius: 3px;
+    }
+
+    .card-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink);
+      text-decoration: none;
+      border-bottom: 1.5px solid var(--ink);
+      padding-bottom: 2px;
+      width: fit-content;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .card-cta:hover { color: var(--blue); border-color: var(--blue); }
+    .card-cta .arr { transition: transform 0.2s; }
+    .card-cta:hover .arr { transform: translate(3px, -3px); }
+
+    /* ── TIMELINE: project evolution ── */
+    .timeline-section {
+      padding: 4rem 0;
+      border-top: 1px solid var(--rule);
+      margin-top: 4rem;
+    }
+
+    .section-label {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-bottom: 2.5rem;
+    }
+
+    .timeline {
+      position: relative;
+      padding-left: 2rem;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 6px;
+      bottom: 6px;
+      width: 1px;
+      background: var(--rule);
+    }
+
+    .timeline-item {
+      position: relative;
+      margin-bottom: 2.25rem;
+    }
+    .timeline-item:last-child { margin-bottom: 0; }
+
+    .timeline-dot {
+      position: absolute;
+      left: -2rem;
+      top: 6px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--paper);
+      border: 2px solid var(--rule);
+    }
+    .timeline-item.active .timeline-dot {
+      background: var(--blue);
+      border-color: var(--blue);
+    }
+
+    .timeline-era {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-bottom: 0.35rem;
+    }
+
+    .timeline-event {
+      font-family: var(--serif);
+      font-size: 1.1rem;
+      color: var(--ink);
+      margin-bottom: 0.4rem;
+    }
+
+    .timeline-detail {
+      font-size: 0.9375rem;
+      color: var(--ink-mid);
+      line-height: 1.65;
+    }
+
+    /* ── ARTICLE BODY ── */
+    .post-body {
+      padding: 4rem 0 5rem;
+      border-top: 1px solid var(--rule);
+    }
+
+    .post-body p {
+      font-size: 1.0625rem;
+      color: var(--ink-mid);
+      line-height: 1.85;
+      margin-bottom: 1.5rem;
+    }
+
+    .post-body h2 {
+      font-family: var(--serif);
+      font-size: 1.625rem;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin: 2.75rem 0 0.9rem;
+      line-height: 1.2;
+    }
+
+    .post-body h3 {
+      font-family: var(--serif);
+      font-size: 1.25rem;
+      color: var(--ink);
+      margin: 2.25rem 0 0.75rem;
+      font-style: italic;
+    }
+
+    .post-body a {
+      color: var(--blue);
+      text-decoration: underline;
+      text-decoration-color: var(--blue-light);
+      text-underline-offset: 3px;
+      transition: text-decoration-color 0.2s;
+    }
+    .post-body a:hover { text-decoration-color: var(--blue); }
+
+    .post-body strong { font-weight: 500; color: var(--ink); }
+    .post-body em { font-style: italic; }
+
+    .post-body ul, .post-body ol {
+      margin: 0 0 1.5rem 1.5rem;
+      color: var(--ink-mid);
+      font-size: 1.0625rem;
+      line-height: 1.8;
+    }
+    .post-body li { margin-bottom: 0.4rem; }
+
+    .post-body blockquote {
+      border-left: 3px solid var(--blue);
+      margin: 2rem 0;
+      padding: 0.25rem 0 0.25rem 1.5rem;
+    }
+    .post-body blockquote p { font-style: italic; color: var(--ink-mid); font-size: 1.125rem; }
+
+    .callout {
+      background: var(--blue-light);
+      border-left: 3px solid var(--blue);
+      border-radius: 0 4px 4px 0;
+      padding: 1.25rem 1.5rem;
+      margin: 2rem 0;
+    }
+    .callout p { color: var(--blue-deep); margin: 0; font-size: 1rem; }
+
+    /* Learnings grid */
+    .learnings-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      margin: 1.5rem 0 2rem;
+    }
+
+    .learning-card {
+      background: var(--paper-warm);
+      padding: 1.25rem;
+      border-radius: 4px;
+      border-top: 2px solid var(--blue);
+    }
+
+    .learning-card-title {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: 0.5rem;
+    }
+
+    .learning-card-body {
+      font-size: 0.9rem;
+      color: var(--ink-mid);
+      line-height: 1.6;
+    }
+
+    /* ── POST FOOTER ── */
+    .post-footer {
+      border-top: 1px solid var(--rule);
+      padding: 3rem 0 5rem;
+    }
+
+    .post-footer-label {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-bottom: 1.75rem;
+    }
+
+    .related-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+
+    .related-card {
+      background: var(--paper-warm);
+      padding: 1.25rem 1.5rem;
+      border-radius: 3px;
+      text-decoration: none;
+      border: 1px solid transparent;
+      transition: border-color 0.2s, background 0.2s;
+      display: block;
+    }
+    .related-card:hover { background: var(--blue-light); border-color: var(--blue); }
+    .related-date { font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 0.4rem; }
+    .related-title { font-family: var(--serif); font-size: 1.0625rem; color: var(--ink); line-height: 1.35; }
+
+    /* Footer */
+    footer { border-top: 1px solid var(--rule); padding: 1.75rem 0; }
+    footer .wrapper { display: flex; justify-content: space-between; align-items: center; }
+    .footer-copy { font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.08em; color: var(--ink-soft); }
+    .footer-motto { font-family: var(--body); font-size: 0.875rem; font-style: italic; color: var(--ink-soft); }
+
+    /* Reveal */
+    .reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.7s ease, transform 0.7s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      body { cursor: auto; }
+      #cursor { display: none; }
+      .project-card { grid-template-columns: 1fr; min-height: unset; }
+      .card-visual { min-height: 220px; }
+      .learnings-grid { grid-template-columns: 1fr; }
+      .related-grid { grid-template-columns: 1fr; }
+      footer .wrapper { flex-direction: column; gap: 0.5rem; text-align: center; }
+      nav { gap: 1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="cursor"></div>
+
+<header id="header">
+  <div class="wrapper">
+    <a href="../index.html" class="wordmark">T. Nishimura</a>
+    <nav>
+      <a href="../index.html#about">About</a>
+      <a href="../index.html#work">Work</a>
+      <a href="../index.html#writing">Writing</a>
+      <a href="../index.html#connect">Say hi</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════
+     FEATURED PROJECT CARD
+     ══════════════════════════════════════ -->
+<section class="project-card-section">
+  <div class="wrapper">
+    <a href="../index.html#writing" class="post-back">← Writing</a>
+
+    <div class="project-card reveal">
+      <!-- Left visual panel -->
+      <div class="card-visual">
+        <div class="card-visual-top">
+          <span class="card-icon">🤖</span>
+          <div class="card-project-name">Le Robot François</div>
+        </div>
+        <div class="card-visual-bottom">
+          <div class="card-stat-row">
+            <div class="card-stat">
+              <div class="card-stat-num">v2</div>
+              <div class="card-stat-label">Generation</div>
+            </div>
+            <div class="card-stat">
+              <div class="card-stat-num">GPT</div>
+              <div class="card-stat-label">Platform</div>
+            </div>
+            <div class="card-stat">
+              <div class="card-stat-num">FR</div>
+              <div class="card-stat-label">Language</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right info panel -->
+      <div class="card-info">
+        <div class="card-meta">
+          <span class="card-chip live">● Live</span>
+          <span class="card-chip">Side project</span>
+          <span class="card-chip">May 2025</span>
+        </div>
+
+        <div>
+          <div class="card-headline">A French vocabulary trainer rebuilt for the AI era</div>
+        </div>
+
+        <div class="card-desc">
+          Started as a ManyChat chatbot on Messenger. Shelved when Meta costs got ugly. Relaunched as a custom GPT — simpler, faster, free to run.
+        </div>
+
+        <div class="card-stack">
+          <span class="stack-tag">ChatGPT</span>
+          <span class="stack-tag">Prompt Engineering</span>
+          <span class="stack-tag">GPT Store</span>
+          <span class="stack-tag">No-code</span>
+        </div>
+
+        <a href="https://chatgpt.com/g/g-q6GGWOcLW-le-robot-francois" target="_blank" rel="noopener" class="card-cta">
+          Try it in the GPT Store <span class="arr">↗</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════
+     PROJECT TIMELINE
+     ══════════════════════════════════════ -->
+<section class="timeline-section reveal">
+  <div class="wrapper--narrow">
+    <div class="section-label">§ Project History</div>
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-era">~2018–2020</div>
+        <div class="timeline-event">ManyChat + Facebook Messenger</div>
+        <div class="timeline-detail">Built a mobile-friendly flashcard chatbot for French vocabulary. It gained organic traction from the Francophone diaspora — without any SEO effort.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-era">~2021</div>
+        <div class="timeline-event">Shelved</div>
+        <div class="timeline-detail">Rising platform costs and Meta compliance changes made the project unsustainable. Since the tool was always free, monetization was off the table.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-era">2023</div>
+        <div class="timeline-event">OpenAI releases Custom GPTs</div>
+        <div class="timeline-detail">The infrastructure problem disappeared. Native language modeling, no webhook logic, no third-party storage. Time to rebuild.</div>
+      </div>
+      <div class="timeline-item active">
+        <div class="timeline-dot"></div>
+        <div class="timeline-era">May 2025 — Now</div>
+        <div class="timeline-event">Live in the GPT Store</div>
+        <div class="timeline-detail">Relaunched as a prompt-native GPT. Everything runs from a single master prompt. Lower costs, faster iteration, same learning experience.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════
+     ARTICLE BODY
+     ══════════════════════════════════════ -->
+<article class="post-body reveal">
+  <div class="wrapper--narrow">
+
+    <p>
+      <em><a href="https://chatgpt.com/g/g-q6GGWOcLW-le-robot-francois" target="_blank" rel="noopener">Le Robot François</a></em> started as a mobile-friendly flashcard chatbot built for language learners. While studying French, I created a vocabulary practice tool using ManyChat and Facebook Messenger. The goal was clear: enable consistent language repetition using a chatbot interface.
+    </p>
+
+    <p>
+      The chatbot gained unexpected attention from French-speaking users globally. I hadn't optimized it for organic discovery, but it began receiving regular traffic from the Francophone diaspora. The initial tech stack was lightweight, fast, and user-friendly.
+    </p>
+
+    <p>
+      However, as the project scaled, two key problems emerged: rising operational costs and compliance changes from Meta. Managing policy shifts, integrations, and automation logic introduced constant overhead. Since my French instruction was generously provided to me at no cost, I personally committed to not directly monetizing this tool, which made the growing costs unattractive.
+    </p>
+
+    <p>Eventually, I shelved the project.</p>
+
+    <p>
+      Years later, <strong>OpenAI</strong> released custom GPTs. This reignited the idea. I now had the tools to relaunch the language learning assistant using modern AI infrastructure, prompt-driven logic, and better cost control. So I transitioned everything into a custom GPT and <a href="https://chatgpt.com/g/g-q6GGWOcLW-le-robot-francois" target="_blank" rel="noopener">published it in the GPT Store</a>.
+    </p>
+
+    <h2>Why I Chose ChatGPT over ManyChat</h2>
+
+    <p>
+      Custom GPTs solved my previous limitations. They offered scalable logic, no-code development, and native language modeling. With ChatGPT, I could:
+    </p>
+
+    <ul>
+      <li>Remove hardcoded flows and switch to natural language interaction</li>
+      <li>Iterate faster using structured prompt engineering</li>
+      <li>Build a reusable educational tool for French vocabulary practice</li>
+    </ul>
+
+    <p>
+      It aligned with modern product principles: frictionless UX, efficient dev cycles, and scalable architecture.
+    </p>
+
+    <h2>How I Rebuilt the French Vocabulary Trainer</h2>
+
+    <p>
+      My rebuild centered around a well-structured master prompt. This controlled tone, behavior, vocabulary structure, and learning flow. I added:
+    </p>
+
+    <ul>
+      <li>Security rules to safeguard usage</li>
+      <li>Attribution messaging that rotated between English and French with a link to TimothyNishimura.com</li>
+      <li>A signature easter egg for traceability</li>
+    </ul>
+
+    <p>
+      Initially, I wanted CSV uploads to drive segmented vocab lists, but <a href="https://community.openai.com/t/gpts-when-a-custom-gpt-is-updated-the-knowledge-file-disappear/545971" target="_blank" rel="noopener">ChatGPT's memory quirks</a> led to occasional data loss. I dropped the external data layer in favor of embedded vocab clusters directly in the prompt.
+    </p>
+
+    <h2>Key Learnings from the Refactor</h2>
+
+    <div class="callout">
+      <p>Complexity is fragile. Simple architectures scale better.</p>
+    </div>
+
+    <p>
+      I replaced webhook-driven automations with prompt logic. No third-party storage. No platform lock-in. Everything lives in the prompt.
+    </p>
+
+    <div class="learnings-grid">
+      <div class="learning-card">
+        <div class="learning-card-title">Cost</div>
+        <div class="learning-card-body">Lower — no webhook hosting, no ManyChat subscription, no Meta API fees.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-card-title">Maintenance</div>
+        <div class="learning-card-body">Easier — one prompt file to update instead of a multi-service integration.</div>
+      </div>
+      <div class="learning-card">
+        <div class="learning-card-title">Iteration</div>
+        <div class="learning-card-body">Faster — prompt changes deploy instantly, no redeploy cycle.</div>
+      </div>
+    </div>
+
+    <p>
+      This was a textbook example of how to modernize a legacy no-code chatbot into a lightweight AI-first application.
+    </p>
+
+    <h2>What's Next</h2>
+
+    <p>Current roadmap experiments include:</p>
+
+    <ul>
+      <li>Skill-based difficulty progression</li>
+      <li>Theme-aware vocab clusters (e.g. travel, food, business)</li>
+      <li>Gamification elements like streaks and leaderboard stats</li>
+    </ul>
+
+    <p>
+      What excites me most is the ability to apply this model to other language learning use cases — or any niche where lightweight education tools can benefit from conversational UX.
+    </p>
+
+  </div>
+</article>
+
+<!-- ══════════════════════════════════════
+     RELATED POSTS
+     ══════════════════════════════════════ -->
+<section class="post-footer">
+  <div class="wrapper--narrow">
+    <div class="post-footer-label">More writing</div>
+    <div class="related-grid">
+      <a class="related-card" href="https://timothynishimura.com/my-ai-tool-has-the-most-boring-name-ever/" target="_blank" rel="noopener">
+        <div class="related-date">May 2025</div>
+        <div class="related-title">My AI Tool Has the Most Boring Name Ever</div>
+      </a>
+      <a class="related-card" href="https://timothynishimura.com/twenty-fourteen-in-2025/" target="_blank" rel="noopener">
+        <div class="related-date">Nov 2024</div>
+        <div class="related-title">POV: It's 2014 (Again)</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrapper">
+    <span class="footer-copy">© 2025 Timothy Nishimura</span>
+    <span class="footer-motto">Out of many, one.</span>
+  </div>
+</footer>
+
+<script>
+  const cursor = document.getElementById('cursor');
+  document.addEventListener('mousemove', e => {
+    cursor.style.left = e.clientX + 'px';
+    cursor.style.top = e.clientY + 'px';
+  });
+  document.querySelectorAll('a').forEach(el => {
+    el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
+    el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
+  });
+  const header = document.getElementById('header');
+  window.addEventListener('scroll', () => {
+    header.classList.toggle('scrolled', window.scrollY > 40);
+  });
+  const reveals = document.querySelectorAll('.reveal');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        setTimeout(() => e.target.classList.add('visible'), i * 70);
+        obs.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+  reveals.forEach(el => obs.observe(el));
+</script>
+
+</body>
+</html>
