@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Tide Clock — Timothy Nishimura</title>
+  <meta name="description" content="A browser-based tide clock driven by live NOAA data and spatial-utils. Accurate to your location anywhere in the US — no calibration, no hardcoded offsets." />
+  <meta property="og:title" content="The Tide Clock — Timothy Nishimura" />
+  <meta property="og:description" content="Replaces mechanical approximation with live NOAA tide predictions and WGS-84 spatial math. Works anywhere in the US." />
+  <meta property="og:type" content="article" />
+  <link rel="canonical" href="https://timothynishimura.com/tide-clock/" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300;1,6..72,400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink: #1c1c1e;
+      --ink-mid: #4a4a50;
+      --ink-soft: #8e8e94;
+      --paper: #f4f2ee;
+      --paper-warm: #ebe7e0;
+      --rule: #d8d4cc;
+      --blue: #5b8db8;
+      --blue-light: #dce9f5;
+      --blue-deep: #2d5a84;
+      --tide-teal: #2a7f7f;
+      --tide-teal-light: #e0f2f2;
+      --mono: 'DM Mono', monospace;
+      --serif: 'DM Serif Display', Georgia, serif;
+      --body: 'Newsreader', Georgia, serif;
+    }
+
+    html { font-size: 16px; scroll-behavior: smooth; }
+
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--body);
+      line-height: 1.7;
+      min-height: 100vh;
+      cursor: none;
+    }
+
+    #cursor {
+      position: fixed;
+      top: 0; left: 0;
+      width: 10px; height: 10px;
+      background: var(--blue);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
+      transition: width 0.2s, height 0.2s;
+      mix-blend-mode: multiply;
+    }
+    #cursor.hover { width: 30px; height: 30px; opacity: 0.4; }
+
+    .wrapper { max-width: 720px; margin: 0 auto; padding: 0 2rem; }
+
+    /* ── HEADER ── */
+    header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 1.25rem 0;
+      background: var(--paper);
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.3s;
+    }
+    header.scrolled { border-color: var(--rule); }
+    header .wrapper { display: flex; align-items: center; justify-content: space-between; }
+
+    .wordmark {
+      font-family: var(--mono);
+      font-size: 0.8125rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    nav { display: flex; gap: 2rem; }
+    nav a {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink-mid);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    nav a:hover { color: var(--blue); }
+
+    /* Menu Toggle */
+    #menu-toggle {
+      display: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      z-index: 1001;
+      position: relative;
+      width: 24px;
+      height: 24px;
+    }
+
+    #menu-toggle span {
+      display: block;
+      width: 20px;
+      height: 1.5px;
+      background: var(--ink);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
+      position: absolute;
+      left: 2px;
+    }
+
+    #menu-toggle span:first-child { top: 9px; }
+    #menu-toggle span:last-child { bottom: 9px; }
+
+    header.menu-open #menu-toggle span:first-child { transform: rotate(45deg); top: 11px; }
+    header.menu-open #menu-toggle span:last-child { transform: rotate(-45deg); bottom: 11.5px; }
+
+    /* ── HERO ── */
+    .project-hero {
+      padding: 9rem 0 4rem;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .project-kicker {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .project-kicker::before {
+      content: '';
+      display: inline-block;
+      width: 24px;
+      height: 1px;
+      background: var(--rule);
+    }
+
+    .project-title {
+      font-family: var(--serif);
+      font-size: clamp(2.5rem, 6vw, 4rem);
+      font-weight: 400;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin-bottom: 1.5rem;
+    }
+    .project-title em {
+      font-style: italic;
+      color: var(--tide-teal);
+    }
+
+    .project-lede {
+      font-size: 1.2rem;
+      font-weight: 300;
+      font-style: italic;
+      color: var(--ink-mid);
+      max-width: 54ch;
+      line-height: 1.6;
+      margin-bottom: 2rem;
+    }
+
+    .project-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .meta-chip {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--tide-teal);
+      background: var(--tide-teal-light);
+      padding: 4px 12px;
+      border-radius: 100px;
+    }
+    .meta-chip.blue {
+      color: var(--blue-deep);
+      background: var(--blue-light);
+    }
+
+    /* ── LIVE EMBED ── */
+    .embed-section {
+      padding: 4rem 0;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .embed-label {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-bottom: 1.25rem;
+    }
+
+    .embed-frame {
+      width: 100%;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--rule);
+      background: var(--paper-warm);
+      position: relative;
+    }
+
+    .embed-frame iframe {
+      width: 100%;
+      height: 640px;
+      border: none;
+      display: block;
+    }
+
+    .embed-caption {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      color: var(--ink-soft);
+      letter-spacing: 0.06em;
+      margin-top: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .embed-caption a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+    .embed-caption a:hover { text-decoration: underline; }
+
+    /* ── BODY CONTENT ── */
+    .project-body {
+      padding: 4rem 0;
+    }
+
+    .body-section {
+      margin-bottom: 3.5rem;
+    }
+
+    .section-label {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .body-section p {
+      font-size: 1.0625rem;
+      line-height: 1.8;
+      color: var(--ink-mid);
+      margin-bottom: 1.25rem;
+      max-width: 66ch;
+    }
+    .body-section p:last-child { margin-bottom: 0; }
+
+    .body-section p strong {
+      font-weight: 400;
+      color: var(--ink);
+    }
+
+    /* Pull quote */
+    .pull-quote {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 1.4rem;
+      line-height: 1.5;
+      color: var(--ink);
+      border-left: 3px solid var(--tide-teal);
+      padding-left: 1.5rem;
+      margin: 2.5rem 0;
+      letter-spacing: -0.01em;
+    }
+
+    /* Technical callout box */
+    .tech-box {
+      background: var(--paper-warm);
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      padding: 1.5rem 1.75rem;
+      margin: 2rem 0;
+    }
+
+    .tech-box-label {
+      font-family: var(--mono);
+      font-size: 0.625rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-bottom: 1rem;
+    }
+
+    .tech-stack-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.875rem;
+    }
+
+    .tech-stack-list li {
+      display: grid;
+      grid-template-columns: 180px 1fr;
+      gap: 1rem;
+      font-size: 0.9375rem;
+      line-height: 1.5;
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: 0.875rem;
+      align-items: start;
+    }
+    .tech-stack-list li:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .tech-key {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      color: var(--tide-teal);
+      padding-top: 0.15rem;
+    }
+
+    .tech-val {
+      color: var(--ink-mid);
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--rule);
+      padding: 2rem 0;
+    }
+    footer .wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .footer-copy {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      color: var(--ink-soft);
+      letter-spacing: 0.06em;
+    }
+    .footer-motto {
+      font-family: var(--serif);
+      font-style: italic;
+      font-size: 0.9375rem;
+      color: var(--ink-soft);
+    }
+
+    /* ── REVEAL ── */
+    .reveal {
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 0.55s ease, transform 0.55s ease;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 640px) {
+      .embed-frame iframe { height: 480px; }
+      .tech-stack-list li { grid-template-columns: 1fr; gap: 0.25rem; }
+      nav {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: var(--paper);
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 3rem;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.4s ease, visibility 0.4s;
+      }
+      header.menu-open nav {
+        opacity: 1;
+        visibility: visible;
+      }
+      nav a {
+        font-family: var(--serif);
+        font-size: 2rem;
+      }
+      #menu-toggle { display: block; }
+      footer .wrapper { flex-direction: column; gap: 0.5rem; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="cursor"></div>
+
+  <header id="header">
+    <div class="wrapper">
+      <a href="/" class="wordmark">T. Nishimura</a>
+      <nav id="main-nav">
+        <a href="/#about">About</a>
+        <a href="/#work">Work</a>
+        <a href="/#writing">Writing</a>
+        <a href="/#connect">Find me</a>
+      </nav>
+      <button id="menu-toggle" aria-label="Toggle menu" aria-controls="main-nav">
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── HERO ── -->
+  <section class="project-hero">
+    <div class="wrapper">
+      <div class="project-kicker reveal">Project · 2025</div>
+      <h1 class="project-title reveal">The <em>Tide Clock</em></h1>
+      <p class="project-lede reveal">A browser-based tide clock that tracks where the tide actually is — not where a gear thinks it should be.</p>
+      <div class="project-meta reveal">
+        <span class="meta-chip">Vanilla JS</span>
+        <span class="meta-chip">HTML Canvas</span>
+        <span class="meta-chip">NOAA CO-OPS API</span>
+        <span class="meta-chip blue">spatial-utils</span>
+        <span class="meta-chip blue">Vercel</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── LIVE EMBED ── -->
+  <section class="embed-section">
+    <div class="wrapper">
+      <div class="embed-label reveal">§ Live clock</div>
+      <div class="embed-frame reveal">
+        <iframe
+          src="https://tide-clock.vercel.app/"
+          title="The Tide Clock — live NOAA tide prediction"
+          loading="lazy"
+          allow="geolocation"
+        ></iframe>
+      </div>
+      <div class="embed-caption reveal">
+        <span>Requests your location to select the nearest NOAA station.</span>
+        <a href="https://tide-clock.vercel.app/" target="_blank" rel="noopener">Open full screen ↗</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── BODY ── -->
+  <section class="project-body">
+    <div class="wrapper">
+
+      <!-- The problem -->
+      <div class="body-section reveal">
+        <div class="section-label">The problem with mechanical tide clocks</div>
+        <p>A mechanical tide clock has one gear that turns once every 24 hours and 50 minutes — the average lunar day. Set it to a local high tide, and it approximates the next one. It's elegant. It's also wrong.</p>
+        <p>Tides don't run on averages. Local geography shapes them: inlet width, basin depth, river mouth backpressure. The difference between the ocean beach and the intracoastal waterway a quarter-mile away can be two hours and several feet. A gear can't know that. A fixed calibration can't know that. Live data can.</p>
+        <div class="pull-quote">"Replace the mechanical approximation with live data and location-aware station selection."</div>
+      </div>
+
+      <!-- How it works -->
+      <div class="body-section reveal">
+        <div class="section-label">How it works</div>
+        <p>On load, the clock requests your GPS coordinates and passes them through a coordinate transformation pipeline — WGS-84 geodetic to ECEF to ENU — to compute true metre-accurate distances to every NOAA tide prediction station in the network. That's roughly 3,400 stations.</p>
+        <p>The two nearest stations within 30km are fetched and their predictions <strong>blended using inverse-distance weighting</strong> with wrap-safe angle averaging to handle the 0°/360° clock face boundary. An exponential moving average smoother prevents the hand from jumping as blend weights shift.</p>
+        <p>The key insight is that NOAA's subordinate station network already encodes the hydraulic corrections for inlets, back bays, tidal rivers, and the ICW — inlet lag, basin attenuation, height ratio — for every named water body in the US. By ranking stations by physical distance rather than ID or region, <strong>a user standing on the ICW gets ICW-corrected predictions automatically</strong>. A user on the ocean beach gets ocean predictions. No hardcoded offsets. No geometry classification logic. The same code works on the Chesapeake, Puget Sound, San Francisco Bay, or anywhere else NOAA has subordinate coverage.</p>
+      </div>
+
+      <!-- spatial-utils -->
+      <div class="body-section reveal">
+        <div class="section-label">The role of spatial-utils</div>
+        <p>The clock is built on <strong>spatial-utils</strong>, a custom open-source JavaScript navigation library for WGS-84 geodetic math. It's the geometric foundation that makes location-aware prediction possible without region-specific logic.</p>
+
+        <div class="tech-box">
+          <div class="tech-box-label">spatial-utils · what it contributes to the clock</div>
+          <ul class="tech-stack-list">
+            <li>
+              <span class="tech-key">wgs84ToEcef</span>
+              <span class="tech-val">Converts GPS coordinates and NOAA station positions from geodetic angles into 3D Cartesian space anchored at Earth's center. Necessary first step — degree arithmetic is geometrically invalid for distance comparisons because a degree of longitude shrinks from 111km at the equator to zero at the poles.</span>
+            </li>
+            <li>
+              <span class="tech-key">ecefToEnu</span>
+              <span class="tech-val">Projects the vector between the user and each station into a local East-North-Up frame. Produces a distance that means what it says: metres along the ground, accounting for the WGS-84 ellipsoid rather than a sphere approximation.</span>
+            </li>
+            <li>
+              <span class="tech-key">getHorizontalDistance</span>
+              <span class="tech-val">Collapses the ENU vector to a single ground-plane distance in metres, used to rank all ~3,400 NOAA stations and compute inverse-distance blend weights between the nearest ones.</span>
+            </li>
+            <li>
+              <span class="tech-key">ema / smoothAngle</span>
+              <span class="tech-val">Exponential moving average smoother and wrap-safe angle interpolation. Prevents the clock hand from jumping as station blend weights shift. Handles the 0°/360° boundary without branch logic.</span>
+            </li>
+          </ul>
+        </div>
+
+        <p>spatial-utils is inlined into the clock rather than imported as a module to avoid ES module CORS restrictions when opening as a local file. Its role is purely geometric: it answers <em>which station is relevant to your position</em>. NOAA answers <em>what the tide is doing at that station</em>. The division of responsibility is intentional.</p>
+      </div>
+
+      <!-- What's displayed -->
+      <div class="body-section reveal">
+        <div class="section-label">What you're looking at</div>
+        <p>The clock face is a custom aerial photograph rendered as a tiny planet — a stereographic projection of a 360° equirectangular image that wraps the full panorama into a circular world, ocean at the center and the horizon curling around the edge.</p>
+        <p>The hand completes one rotation every 24 hours and 50 minutes. Alongside it: current tide phase (rising or falling), countdown to next high and next low, current water height in feet above MLLW, a water level arc on the rim showing fill proportional to height, a spring/neap indicator driven by moon phase math, and a station blend card showing which NOAA stations are active, their type, distance, and blend weight.</p>
+      </div>
+
+      <!-- How it started -->
+      <div class="body-section reveal">
+        <div class="section-label">How it started</div>
+        <p>Started as a single widget demonstration of how a tide clock works mechanically. Expanded into a full location-aware prediction system through an iterative build covering coordinate math, NOAA API integration, multi-station blending, ICW/ocean differential, geolocation edge cases on macOS, Vercel deployment, and iframe embedding.</p>
+        <p>The geolocation flow uses the Permissions API to detect blocked access before firing <code>getCurrentPosition</code>, retries with <code>enableHighAccuracy: false</code> on macOS Core Location failures, and surfaces OS-level fix instructions when the browser permission is granted but the system is blocking. Data refreshes every 6 hours.</p>
+        <p>The narrative arc is simple: <strong>decorative approximation → location-aware precision → universally applicable without hardcoding.</strong></p>
+      </div>
+
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrapper">
+      <span class="footer-copy">© 2025 Timothy Nishimura</span>
+      <span class="footer-motto">Out of many, one.</span>
+    </div>
+  </footer>
+
+  <script>
+    const cursor = document.getElementById('cursor');
+    document.addEventListener('mousemove', e => {
+      cursor.style.left = e.clientX + 'px';
+      cursor.style.top = e.clientY + 'px';
+    });
+    document.querySelectorAll('a, button').forEach(el => {
+      el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
+      el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
+    });
+
+    const header = document.getElementById('header');
+    const menuToggle = document.getElementById('menu-toggle');
+    
+    window.addEventListener('scroll', () => {
+      header.classList.toggle('scrolled', window.scrollY > 40);
+    });
+
+    menuToggle.addEventListener('click', () => {
+      header.classList.toggle('menu-open');
+      document.body.style.overflow = header.classList.contains('menu-open') ? 'hidden' : '';
+    });
+
+    document.querySelectorAll('#main-nav a').forEach(link => {
+      link.addEventListener('click', () => {
+        header.classList.remove('menu-open');
+        document.body.style.overflow = '';
+      });
+    });
+
+    const reveals = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry, i) => {
+        if (entry.isIntersecting) {
+          setTimeout(() => entry.target.classList.add('visible'), i * 70);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+    reveals.forEach(el => observer.observe(el));
+  </script>
+
+</body>
+</html>
