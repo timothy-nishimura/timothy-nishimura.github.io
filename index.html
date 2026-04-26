@@ -188,6 +188,35 @@
     }
     nav a:hover { color: var(--blue); }
 
+    /* Menu Toggle */
+    #menu-toggle {
+      display: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      z-index: 1001;
+      position: relative;
+      width: 24px;
+      height: 24px;
+    }
+
+    #menu-toggle span {
+      display: block;
+      width: 20px;
+      height: 1.5px;
+      background: var(--ink);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
+      position: absolute;
+      left: 2px;
+    }
+
+    #menu-toggle span:first-child { top: 9px; }
+    #menu-toggle span:last-child { bottom: 9px; }
+
+    header.menu-open #menu-toggle span:first-child { transform: rotate(45deg); top: 11px; }
+    header.menu-open #menu-toggle span:last-child { transform: rotate(-45deg); bottom: 11.5px; }
+
     /* Hero */
     .hero {
       padding: 11rem 0 6rem;
@@ -635,7 +664,29 @@
       .work-item { grid-template-columns: 1fr; gap: 0.4rem; }
       .work-tag { text-align: left; }
       footer .wrapper { flex-direction: column; gap: 0.5rem; text-align: center; }
-      nav { gap: 1.25rem; }
+      nav {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: var(--paper);
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 3rem;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.4s ease, visibility 0.4s;
+      }
+      header.menu-open nav {
+        opacity: 1;
+        visibility: visible;
+      }
+      nav a {
+        font-family: var(--serif);
+        font-size: 2rem;
+      }
+      #menu-toggle { display: block; }
+      footer .wrapper { flex-direction: column; gap: 0.5rem; text-align: center; }
     }
   </style>
 </head>
@@ -647,12 +698,16 @@
 <header id="header">
   <div class="wrapper">
     <a href="/" class="wordmark">T. Nishimura</a>
-    <nav>
+    <nav id="main-nav">
       <a href="#about">About</a>
       <a href="#work">Work</a>
       <a href="#writing">Writing</a>
       <a href="#connect">Find me</a>
     </nav>
+    <button id="menu-toggle" aria-label="Toggle menu" aria-controls="main-nav">
+      <span></span>
+      <span></span>
+    </button>
   </div>
 </header>
 
@@ -850,8 +905,22 @@
   });
 
   const header = document.getElementById('header');
+  const menuToggle = document.getElementById('menu-toggle');
+  
   window.addEventListener('scroll', () => {
     header.classList.toggle('scrolled', window.scrollY > 40);
+  });
+
+  menuToggle.addEventListener('click', () => {
+    header.classList.toggle('menu-open');
+    document.body.style.overflow = header.classList.contains('menu-open') ? 'hidden' : '';
+  });
+
+  document.querySelectorAll('#main-nav a').forEach(link => {
+    link.addEventListener('click', () => {
+      header.classList.remove('menu-open');
+      document.body.style.overflow = '';
+    });
   });
 
   const reveals = document.querySelectorAll('.reveal');
