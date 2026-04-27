@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>The Tide Clock — Timothy Nishimura</title>
-  <meta name="description" content="A browser-based tide clock driven by live NOAA data and spatial-utils. Accurate to your location anywhere in the US — no calibration, no hardcoded offsets." />
+  <meta name="description" content="I wanted to build a tide clock. One thing led to another — live NOAA data, WGS-84 geodetic math, a tiny planet clock face, and a library called spatial-utils." />
   <meta property="og:title" content="The Tide Clock — Timothy Nishimura" />
-  <meta property="og:description" content="Replaces mechanical approximation with live NOAA tide predictions and WGS-84 spatial math. Works anywhere in the US." />
+  <meta property="og:description" content="Started as a curiosity about how tide clocks work. Became a deep dive into spatial math, NOAA's station network, and iterative building." />
   <meta property="og:type" content="article" />
-  <link rel="canonical" href="https://timothynishimura.com/tide-clock/" />
+  <link rel="canonical" href="https://timothynishimura.com/projects/tide-clock.html" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300;1,6..72,400&display=swap" rel="stylesheet" />
@@ -25,8 +25,9 @@
       --blue: #5b8db8;
       --blue-light: #dce9f5;
       --blue-deep: #2d5a84;
-      --tide-teal: #2a7f7f;
-      --tide-teal-light: #e0f2f2;
+      --sea: #3a6e9e;
+      --sea-light: #c8dff0;
+      --sea-deep: #1e4a6e;
       --mono: 'DM Mono', monospace;
       --serif: 'DM Serif Display', Georgia, serif;
       --body: 'Newsreader', Georgia, serif;
@@ -93,35 +94,6 @@
     }
     nav a:hover { color: var(--blue); }
 
-    /* Menu Toggle */
-    #menu-toggle {
-      display: none;
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 0;
-      z-index: 1001;
-      position: relative;
-      width: 24px;
-      height: 24px;
-    }
-
-    #menu-toggle span {
-      display: block;
-      width: 20px;
-      height: 1.5px;
-      background: var(--ink);
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
-      position: absolute;
-      left: 2px;
-    }
-
-    #menu-toggle span:first-child { top: 9px; }
-    #menu-toggle span:last-child { bottom: 9px; }
-
-    header.menu-open #menu-toggle span:first-child { transform: rotate(45deg); top: 11px; }
-    header.menu-open #menu-toggle span:last-child { transform: rotate(-45deg); bottom: 11.5px; }
-
     /* ── HERO ── */
     .project-hero {
       padding: 9rem 0 4rem;
@@ -158,7 +130,7 @@
     }
     .project-title em {
       font-style: italic;
-      color: var(--tide-teal);
+      color: var(--sea);
     }
 
     .project-lede {
@@ -182,8 +154,8 @@
       font-size: 0.6875rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: var(--tide-teal);
-      background: var(--tide-teal-light);
+      color: var(--sea-deep);
+      background: var(--sea-light);
       padding: 4px 12px;
       border-radius: 100px;
     }
@@ -281,7 +253,7 @@
       font-size: 1.4rem;
       line-height: 1.5;
       color: var(--ink);
-      border-left: 3px solid var(--tide-teal);
+      border-left: 3px solid var(--sea);
       padding-left: 1.5rem;
       margin: 2.5rem 0;
       letter-spacing: -0.01em;
@@ -331,12 +303,23 @@
       font-family: var(--mono);
       font-size: 0.75rem;
       letter-spacing: 0.06em;
-      color: var(--tide-teal);
+      color: var(--sea);
       padding-top: 0.15rem;
     }
 
     .tech-val {
       color: var(--ink-mid);
+    }
+
+    /* Inline code */
+    code {
+      font-family: var(--mono);
+      font-size: 0.8em;
+      background: var(--sea-light);
+      color: var(--sea-deep);
+      padding: 0.15em 0.45em;
+      border-radius: 3px;
+      white-space: nowrap;
     }
 
     /* ── FOOTER ── */
@@ -377,29 +360,7 @@
     @media (max-width: 640px) {
       .embed-frame iframe { height: 480px; }
       .tech-stack-list li { grid-template-columns: 1fr; gap: 0.25rem; }
-      nav {
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: var(--paper);
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        gap: 3rem;
-        z-index: 1000;
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity 0.4s ease, visibility 0.4s;
-      }
-      header.menu-open nav {
-        opacity: 1;
-        visibility: visible;
-      }
-      nav a {
-        font-family: var(--serif);
-        font-size: 2rem;
-      }
-      #menu-toggle { display: block; }
-      footer .wrapper { flex-direction: column; gap: 0.5rem; text-align: center; }
+      nav { gap: 1.25rem; }
     }
   </style>
 </head>
@@ -410,16 +371,12 @@
   <header id="header">
     <div class="wrapper">
       <a href="/" class="wordmark">T. Nishimura</a>
-      <nav id="main-nav">
+      <nav>
         <a href="/#about">About</a>
         <a href="/#work">Work</a>
         <a href="/#writing">Writing</a>
         <a href="/#connect">Find me</a>
       </nav>
-      <button id="menu-toggle" aria-label="Toggle menu" aria-controls="main-nav">
-        <span></span>
-        <span></span>
-      </button>
     </div>
   </header>
 
@@ -428,7 +385,7 @@
     <div class="wrapper">
       <div class="project-kicker reveal">Project · 2025</div>
       <h1 class="project-title reveal">The <em>Tide Clock</em></h1>
-      <p class="project-lede reveal">A browser-based tide clock that tracks where the tide actually is — not where a gear thinks it should be.</p>
+      <p class="project-lede reveal">I wanted to build a tide clock. One thing led to another.</p>
       <div class="project-meta reveal">
         <span class="meta-chip">Vanilla JS</span>
         <span class="meta-chip">HTML Canvas</span>
@@ -462,65 +419,64 @@
   <section class="project-body">
     <div class="wrapper">
 
-      <!-- The problem -->
+      <!-- The mechanical clock -->
       <div class="body-section reveal">
-        <div class="section-label">The problem with mechanical tide clocks</div>
-        <p>A mechanical tide clock has one gear that turns once every 24 hours and 50 minutes — the average lunar day. Set it to a local high tide, and it approximates the next one. It's elegant. It's also wrong.</p>
-        <p>Tides don't run on averages. Local geography shapes them: inlet width, basin depth, river mouth backpressure. The difference between the ocean beach and the intracoastal waterway a quarter-mile away can be two hours and several feet. A gear can't know that. A fixed calibration can't know that. Live data can.</p>
-        <div class="pull-quote">"Replace the mechanical approximation with live data and location-aware station selection."</div>
+        <div class="section-label">It started with a mechanical clock</div>
+        <p>Mechanical tide clocks are genuinely beautiful objects. One gear, one hand, one rotation every 24 hours and 50 minutes — the average lunar day. Set it to a local high tide and it approximates the rhythm of the sea on your wall. There's real elegance in that.</p>
+        <p>But tides don't run on averages, and that's not a flaw — it's the interesting part. Local geography shapes everything: inlet width, basin depth, the back-and-forth of a tidal river. The difference between the ocean beach and the intracoastal waterway a quarter-mile away can be two hours and several feet. A gear makes a beautiful guess. I wanted to see what live data could do instead.</p>
+        <div class="pull-quote">Not a problem to solve — more of a puzzle to sit with.</div>
       </div>
 
       <!-- How it works -->
       <div class="body-section reveal">
-        <div class="section-label">How it works</div>
-        <p>On load, the clock requests your GPS coordinates and passes them through a coordinate transformation pipeline — WGS-84 geodetic to ECEF to ENU — to compute true metre-accurate distances to every NOAA tide prediction station in the network. That's roughly 3,400 stations.</p>
-        <p>The two nearest stations within 30km are fetched and their predictions <strong>blended using inverse-distance weighting</strong> with wrap-safe angle averaging to handle the 0°/360° clock face boundary. An exponential moving average smoother prevents the hand from jumping as blend weights shift.</p>
-        <p>The key insight is that NOAA's subordinate station network already encodes the hydraulic corrections for inlets, back bays, tidal rivers, and the ICW — inlet lag, basin attenuation, height ratio — for every named water body in the US. By ranking stations by physical distance rather than ID or region, <strong>a user standing on the ICW gets ICW-corrected predictions automatically</strong>. A user on the ocean beach gets ocean predictions. No hardcoded offsets. No geometry classification logic. The same code works on the Chesapeake, Puget Sound, San Francisco Bay, or anywhere else NOAA has subordinate coverage.</p>
+        <div class="section-label">How it came together</div>
+        <p>On load, the clock asks for your location and uses that to find the nearest NOAA tide prediction stations — about 3,400 of them across the US. The two closest within 30km get fetched and their predictions blended by distance, so if you're on the ICW you get ICW timing, and if you're on the ocean beach you get ocean timing. No configuration, no hardcoded offsets.</p>
+        <p>The blending uses inverse-distance weighting with wrap-safe angle averaging to handle the 0°/360° boundary on the clock face. An exponential moving average keeps the hand from jumping as weights shift. The hand completes one rotation every 24 hours and 50 minutes — same as the gear, just driven by real data instead of an approximation.</p>
+        <p>The thing I didn't expect: NOAA's subordinate station network already encodes the hydraulic corrections for inlets, back bays, and tidal rivers. Inlet lag, basin attenuation, height ratio — all of it, for every named water body in the country. Ranking stations by physical distance rather than region just lets you tap into that existing knowledge. The clock didn't need to be smart about geography. NOAA already was.</p>
       </div>
 
       <!-- spatial-utils -->
       <div class="body-section reveal">
-        <div class="section-label">The role of spatial-utils</div>
-        <p>The clock is built on <strong>spatial-utils</strong>, a custom open-source JavaScript navigation library for WGS-84 geodetic math. It's the geometric foundation that makes location-aware prediction possible without region-specific logic.</p>
+        <div class="section-label">spatial-utils</div>
+        <p>The coordinate math lives in <strong>spatial-utils</strong>, an open-source JavaScript navigation library I built in parallel. It handles WGS-84 geodetic conversions — the same coordinate system GPS uses — and it's what makes the station ranking work without any region-specific logic.</p>
 
         <div class="tech-box">
-          <div class="tech-box-label">spatial-utils · what it contributes to the clock</div>
+          <div class="tech-box-label">spatial-utils · what it does in the clock</div>
           <ul class="tech-stack-list">
             <li>
               <span class="tech-key">wgs84ToEcef</span>
-              <span class="tech-val">Converts GPS coordinates and NOAA station positions from geodetic angles into 3D Cartesian space anchored at Earth's center. Necessary first step — degree arithmetic is geometrically invalid for distance comparisons because a degree of longitude shrinks from 111km at the equator to zero at the poles.</span>
+              <span class="tech-val">Converts lat/lng into 3D Cartesian space anchored at Earth's center. You can't compare distances in degrees directly — a degree of longitude shrinks from 111km at the equator to zero at the poles. ECEF removes that distortion.</span>
             </li>
             <li>
               <span class="tech-key">ecefToEnu</span>
-              <span class="tech-val">Projects the vector between the user and each station into a local East-North-Up frame. Produces a distance that means what it says: metres along the ground, accounting for the WGS-84 ellipsoid rather than a sphere approximation.</span>
+              <span class="tech-val">Projects the vector from your position to each station into a local East-North-Up frame. The result is a real ground distance in metres, accounting for the WGS-84 ellipsoid rather than a sphere.</span>
             </li>
             <li>
               <span class="tech-key">getHorizontalDistance</span>
-              <span class="tech-val">Collapses the ENU vector to a single ground-plane distance in metres, used to rank all ~3,400 NOAA stations and compute inverse-distance blend weights between the nearest ones.</span>
+              <span class="tech-val">Collapses the ENU vector to a single ground-plane distance, used to rank all ~3,400 stations and compute the inverse-distance blend weights.</span>
             </li>
             <li>
               <span class="tech-key">ema / smoothAngle</span>
-              <span class="tech-val">Exponential moving average smoother and wrap-safe angle interpolation. Prevents the clock hand from jumping as station blend weights shift. Handles the 0°/360° boundary without branch logic.</span>
+              <span class="tech-val">Exponential moving average and wrap-safe angle interpolation. Keeps the hand smooth across the 0°/360° boundary as blend weights shift over time.</span>
             </li>
           </ul>
         </div>
 
-        <p>spatial-utils is inlined into the clock rather than imported as a module to avoid ES module CORS restrictions when opening as a local file. Its role is purely geometric: it answers <em>which station is relevant to your position</em>. NOAA answers <em>what the tide is doing at that station</em>. The division of responsibility is intentional.</p>
+        <p>spatial-utils is inlined into the clock rather than imported as a module — easier to open as a local file that way, no CORS to deal with. Its job is purely geometric: figure out which stations are relevant to where you are. NOAA handles everything else.</p>
       </div>
 
       <!-- What's displayed -->
       <div class="body-section reveal">
         <div class="section-label">What you're looking at</div>
-        <p>The clock face is a custom aerial photograph rendered as a tiny planet — a stereographic projection of a 360° equirectangular image that wraps the full panorama into a circular world, ocean at the center and the horizon curling around the edge.</p>
-        <p>The hand completes one rotation every 24 hours and 50 minutes. Alongside it: current tide phase (rising or falling), countdown to next high and next low, current water height in feet above MLLW, a water level arc on the rim showing fill proportional to height, a spring/neap indicator driven by moon phase math, and a station blend card showing which NOAA stations are active, their type, distance, and blend weight.</p>
+        <p>The clock face is a custom aerial photograph rendered as a tiny planet — a stereographic projection of a 360° equirectangular image, ocean at the center, horizon curling around the edge. Around the hand: current tide phase, countdown to the next high and low, water height in feet above MLLW, a fill arc on the rim, a spring/neap indicator, and a blend card showing which NOAA stations are active and how much weight each one carries.</p>
       </div>
 
-      <!-- How it started -->
+      <!-- How it grew -->
       <div class="body-section reveal">
-        <div class="section-label">How it started</div>
-        <p>Started as a single widget demonstration of how a tide clock works mechanically. Expanded into a full location-aware prediction system through an iterative build covering coordinate math, NOAA API integration, multi-station blending, ICW/ocean differential, geolocation edge cases on macOS, Vercel deployment, and iframe embedding.</p>
-        <p>The geolocation flow uses the Permissions API to detect blocked access before firing <code>getCurrentPosition</code>, retries with <code>enableHighAccuracy: false</code> on macOS Core Location failures, and surfaces OS-level fix instructions when the browser permission is granted but the system is blocking. Data refreshes every 6 hours.</p>
-        <p>The narrative arc is simple: <strong>decorative approximation → location-aware precision → universally applicable without hardcoding.</strong></p>
+        <div class="section-label">How it grew</div>
+        <p>It started as a single widget to understand the mechanics. It grew into something location-aware through iteration: coordinate math, then API integration, then multi-station blending, then the ICW/ocean split, then the geolocation edge cases.</p>
+        <p>That last part was its own rabbit hole. The geolocation flow uses the Permissions API to check for blocked access before calling <code>getCurrentPosition</code>, retries with <code>enableHighAccuracy: false</code> when macOS Core Location fails quietly, and surfaces OS-level instructions when the browser thinks it has permission but the system is blocking it. None of that was planned. It just kept coming up.</p>
+        <p>Data refreshes automatically every 6 hours. The clock runs on Vercel.</p>
       </div>
 
     </div>
@@ -545,22 +501,8 @@
     });
 
     const header = document.getElementById('header');
-    const menuToggle = document.getElementById('menu-toggle');
-    
     window.addEventListener('scroll', () => {
       header.classList.toggle('scrolled', window.scrollY > 40);
-    });
-
-    menuToggle.addEventListener('click', () => {
-      header.classList.toggle('menu-open');
-      document.body.style.overflow = header.classList.contains('menu-open') ? 'hidden' : '';
-    });
-
-    document.querySelectorAll('#main-nav a').forEach(link => {
-      link.addEventListener('click', () => {
-        header.classList.remove('menu-open');
-        document.body.style.overflow = '';
-      });
     });
 
     const reveals = document.querySelectorAll('.reveal');
