@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>The Tide Clock — Timothy Nishimura</title>
-  <meta name="description" content="I wanted to build a tide clock. One thing led to another — live NOAA data, WGS-84 geodetic math, a tiny planet clock face, and a library called spatial-utils." />
-  <meta property="og:title" content="The Tide Clock — Timothy Nishimura" />
+  <title>The Tide Clock - Timothy Nishimura</title>
+  <meta name="description" content="I wanted to build a tide clock. One thing led to another - live NOAA data, WGS-84 geodetic math, a tiny planet clock face, and a library called spatial-utils." />
+  <meta property="og:title" content="The Tide Clock - Timothy Nishimura" />
   <meta property="og:description" content="Started as a curiosity about how tide clocks work. Became a deep dive into spatial math, NOAA's station network, and iterative building." />
   <meta property="og:type" content="article" />
   <link rel="canonical" href="https://timothynishimura.com/projects/tide-clock.html" />
@@ -403,7 +403,7 @@
       <div class="embed-frame reveal">
         <iframe
           src="https://tide-clock.vercel.app/"
-          title="The Tide Clock — live NOAA tide prediction"
+          title="The Tide Clock - live NOAA tide prediction"
           loading="lazy"
           allow="geolocation"
         ></iframe>
@@ -422,30 +422,30 @@
       <!-- The mechanical clock -->
       <div class="body-section reveal">
         <div class="section-label">It started with a mechanical clock</div>
-        <p>Mechanical tide clocks are genuinely beautiful objects. One gear, one hand, one rotation every 24 hours and 50 minutes — the average lunar day. Set it to a local high tide and it approximates the rhythm of the sea on your wall. There's real elegance in that.</p>
-        <p>But tides don't run on averages, and that's not a flaw — it's the interesting part. Local geography shapes everything: inlet width, basin depth, the back-and-forth of a tidal river. The difference between the ocean beach and the intracoastal waterway a quarter-mile away can be two hours and several feet. A gear makes a beautiful guess. I wanted to see what live data could do instead.</p>
-        <div class="pull-quote">Not a problem to solve — more of a puzzle to sit with.</div>
+        <p>Mechanical tide clocks are genuinely beautiful objects. One gear, one hand, one rotation every 24 hours and 50 minutes - the average lunar day. Set it to a local high tide and it approximates the rhythm of the sea on your wall. There's real elegance in that.</p>
+        <p>But tides don't run on averages, and that's not a flaw - it's the interesting part. Local geography shapes everything: inlet width, basin depth, the back-and-forth of a tidal river. The difference between the ocean beach and the intracoastal waterway a quarter-mile away can be two hours and several feet. A gear makes a beautiful guess. I wanted to see what live data could do instead.</p>
+        <div class="pull-quote">Not a problem to solve - more of a puzzle to sit with.</div>
       </div>
 
       <!-- How it works -->
       <div class="body-section reveal">
         <div class="section-label">How it came together</div>
-        <p>On load, the clock asks for your location and uses that to find the nearest NOAA tide prediction stations — about 3,400 of them across the US. The two closest within 30km get fetched and their predictions blended by distance, so if you're on the ICW you get ICW timing, and if you're on the ocean beach you get ocean timing. No configuration, no hardcoded offsets.</p>
-        <p>The blending uses inverse-distance weighting with wrap-safe angle averaging to handle the 0°/360° boundary on the clock face. An exponential moving average keeps the hand from jumping as weights shift. The hand completes one rotation every 24 hours and 50 minutes — same as the gear, just driven by real data instead of an approximation.</p>
-        <p>The thing I didn't expect: NOAA's subordinate station network already encodes the hydraulic corrections for inlets, back bays, and tidal rivers. Inlet lag, basin attenuation, height ratio — all of it, for every named water body in the country. Ranking stations by physical distance rather than region just lets you tap into that existing knowledge. The clock didn't need to be smart about geography. NOAA already was.</p>
+        <p>On load, the clock asks for your location and uses that to find the nearest NOAA tide prediction stations - about 3,400 of them across the US. The two closest within 30km get fetched and their predictions blended by distance, so if you're on the ICW you get ICW timing, and if you're on the ocean beach you get ocean timing. No configuration, no hardcoded offsets.</p>
+        <p>The blending uses inverse-distance weighting with wrap-safe angle averaging to handle the 0°/360° boundary on the clock face. An exponential moving average keeps the hand from jumping as weights shift. The hand completes one rotation every 24 hours and 50 minutes - same as the gear, just driven by real data instead of an approximation.</p>
+        <p>The thing I didn't expect: NOAA's subordinate station network already encodes the hydraulic corrections for inlets, back bays, and tidal rivers. Inlet lag, basin attenuation, height ratio - all of it, for every named water body in the country. Ranking stations by physical distance rather than region just lets you tap into that existing knowledge. The clock didn't need to be smart about geography. NOAA already was.</p>
       </div>
 
       <!-- spatial-utils -->
       <div class="body-section reveal">
         <div class="section-label">spatial-utils</div>
-        <p>The coordinate math lives in <strong>spatial-utils</strong>, an open-source JavaScript navigation library I built in parallel. It handles WGS-84 geodetic conversions — the same coordinate system GPS uses — and it's what makes the station ranking work without any region-specific logic.</p>
+        <p>The coordinate math lives in <strong>spatial-utils</strong>, an open-source JavaScript navigation library I built in parallel. It handles WGS-84 geodetic conversions - the same coordinate system GPS uses - and it's what makes the station ranking work without any region-specific logic.</p>
 
         <div class="tech-box">
           <div class="tech-box-label">spatial-utils · what it does in the clock</div>
           <ul class="tech-stack-list">
             <li>
               <span class="tech-key">wgs84ToEcef</span>
-              <span class="tech-val">Converts lat/lng into 3D Cartesian space anchored at Earth's center. You can't compare distances in degrees directly — a degree of longitude shrinks from 111km at the equator to zero at the poles. ECEF removes that distortion.</span>
+              <span class="tech-val">Converts lat/lng into 3D Cartesian space anchored at Earth's center. You can't compare distances in degrees directly - a degree of longitude shrinks from 111km at the equator to zero at the poles. ECEF removes that distortion.</span>
             </li>
             <li>
               <span class="tech-key">ecefToEnu</span>
@@ -462,13 +462,13 @@
           </ul>
         </div>
 
-        <p>spatial-utils is inlined into the clock rather than imported as a module — easier to open as a local file that way, no CORS to deal with. Its job is purely geometric: figure out which stations are relevant to where you are. NOAA handles everything else.</p>
+        <p>spatial-utils is inlined into the clock rather than imported as a module - easier to open as a local file that way, no CORS to deal with. Its job is purely geometric: figure out which stations are relevant to where you are. NOAA handles everything else.</p>
       </div>
 
       <!-- What's displayed -->
       <div class="body-section reveal">
         <div class="section-label">What you're looking at</div>
-        <p>The clock face is a custom aerial photograph rendered as a tiny planet — a stereographic projection of a 360° equirectangular image, ocean at the center, horizon curling around the edge. Around the hand: current tide phase, countdown to the next high and low, water height in feet above MLLW, a fill arc on the rim, a spring/neap indicator, and a blend card showing which NOAA stations are active and how much weight each one carries.</p>
+        <p>The clock face is a custom aerial photograph rendered as a tiny planet - a stereographic projection of a 360° equirectangular image, ocean at the center, horizon curling around the edge. Around the hand: current tide phase, countdown to the next high and low, water height in feet above MLLW, a fill arc on the rim, a spring/neap indicator, and a blend card showing which NOAA stations are active and how much weight each one carries.</p>
       </div>
 
       <!-- How it grew -->
