@@ -893,6 +893,19 @@
 </footer>
 
 <script>
+  // Randomize skill chips
+  (function() {
+    const container = document.querySelector('.chips');
+    if (container) {
+      const chips = Array.from(container.children);
+      for (let i = chips.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [chips[i], chips[j]] = [chips[j], chips[i]];
+      }
+      chips.forEach(chip => container.appendChild(chip));
+    }
+  })();
+
   const cursor = document.getElementById('cursor');
   document.addEventListener('mousemove', e => {
     cursor.style.left = e.clientX + 'px';
