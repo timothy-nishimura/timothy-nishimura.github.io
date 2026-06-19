@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>I Wanted a Free Screaming Frog. I Built a Crawl Engine. - Timothy Nishimura</title>
+  <meta name="description" content="What started as a hunt for a cheaper SEO crawler turned into an open-source crawl engine built around the MCP protocol and Claude. Here's how that happened." />
+  <meta property="og:title" content="I Wanted a Free Screaming Frog. I Built a Crawl Engine." />
+  <meta property="og:description" content="What started as a hunt for a cheaper SEO crawler turned into an open-source crawl engine built around the MCP protocol and Claude. Here's how that happened." />
+  <meta property="og:type" content="article" />
+  <meta property="og:image" content="https://timothynishimura.com/i-wanted-free-screaming-frog/og-image.png" />
+  <meta property="og:image:width" content="1280" />
+  <meta property="og:image:height" content="640" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://timothynishimura.com/i-wanted-free-screaming-frog/og-image.png" />
+  <link rel="canonical" href="https://timothynishimura.com/i-wanted-free-screaming-frog/" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "I Wanted a Free Screaming Frog. I Built a Crawl Engine.",
+    "description": "What started as a hunt for a cheaper SEO crawler turned into an open-source crawl engine built around the MCP protocol and Claude. Here's how that happened.",
+    "datePublished": "2026-06-18",
+    "dateModified": "2026-06-18",
+    "url": "https://timothynishimura.com/i-wanted-free-screaming-frog/",
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": "https://timothynishimura.com/i-wanted-free-screaming-frog/"
+    },
+    "author": {
+      "@type": "Person",
+      "name": "Timothy Nishimura",
+      "url": "https://timothynishimura.com"
+    },
+    "publisher": {
+      "@type": "Person",
+      "name": "Timothy Nishimura",
+      "url": "https://timothynishimura.com"
+    },
+    "image": "https://timothynishimura.com/i-wanted-free-screaming-frog/og-image.png",
+    "keywords": ["web crawling", "MCP", "Claude", "open source", "TypeScript", "Node.js", "SEO tools"]
+  }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300;1,6..72,400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink: #1c1c1e;
+      --ink-mid: #4a4a50;
+      --ink-soft: #8e8e94;
+      --paper: #f4f2ee;
+      --paper-warm: #ebe7e0;
+      --rule: #d8d4cc;
+      --blue: #5b8db8;
+      --blue-light: #dce9f5;
+      --blue-deep: #2d5a84;
+      --mono: 'DM Mono', monospace;
+      --serif: 'DM Serif Display', Georgia, serif;
+      --body: 'Newsreader', Georgia, serif;
+    }
+
+    html { font-size: 16px; scroll-behavior: smooth; }
+
+    body {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--body);
+      line-height: 1.7;
+      min-height: 100vh;
+      cursor: none;
+    }
+
+    /* Cursor */
+    #cursor {
+      position: fixed;
+      top: 0; left: 0;
+      width: 10px; height: 10px;
+      background: var(--blue);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
+      transition: width 0.2s, height 0.2s;
+      mix-blend-mode: multiply;
+    }
+    #cursor.hover { width: 30px; height: 30px; opacity: 0.4; }
+
+    /* Layout */
+    .wrapper { max-width: 720px; margin: 0 auto; padding: 0 2rem; }
+    .wrapper--narrow { max-width: 640px; margin: 0 auto; padding: 0 2rem; }
+
+    /* Header */
+    header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      padding: 1.25rem 0;
+      background: var(--paper);
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.3s;
+    }
+    header.scrolled { border-color: var(--rule); }
+    header .wrapper { display: flex; align-items: center; justify-content: space-between; }
+
+    .wordmark {
+      font-family: var(--mono);
+      font-size: 0.8125rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    nav { display: flex; gap: 2rem; }
+    nav a {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink-mid);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    nav a:hover { color: var(--blue); }
+
+    /* Menu Toggle */
+    #menu-toggle {
+      display: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      z-index: 1001;
+      position: relative;
+      width: 24px;
+      height: 24px;
+    }
+
+    #menu-toggle span {
+      display: block;
+      width: 20px;
+      height: 1.5px;
+      background: var(--ink);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
+      position: absolute;
+      left: 2px;
+    }
+
+    #menu-toggle span:first-child { top: 9px; }
+    #menu-toggle span:last-child { bottom: 9px; }
+
+    header.menu-open #menu-toggle span:first-child { transform: rotate(45deg); top: 11px; }
+    header.menu-open #menu-toggle span:last-child { transform: rotate(-45deg); bottom: 11.5px; }
+
+    /* ── POST HEADER ── */
+    .post-header {
+      padding: 10rem 0 3.5rem;
+    }
+
+    .post-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      text-decoration: none;
+      margin-bottom: 2.5rem;
+      transition: color 0.2s;
+    }
+    .post-back:hover { color: var(--blue); }
+
+    .post-meta {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .post-date {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
+    .post-category {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--blue-deep);
+      background: var(--blue-light);
+      padding: 3px 10px;
+      border-radius: 100px;
+    }
+
+    .post-title {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 6vw, 3.5rem);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin-bottom: 1rem;
+    }
+
+    .post-title em { font-style: italic; color: var(--blue); }
+
+    .post-subtitle {
+      font-family: var(--body);
+      font-size: 1.125rem;
+      font-weight: 300;
+      font-style: italic;
+      color: var(--ink-mid);
+      max-width: 52ch;
+      line-height: 1.6;
+    }
+
+    /* ── HERO IMAGE ── */
+    .post-hero {
+      margin: 2.5rem 0 0;
+    }
+    .post-hero img {
+      width: 100%;
+      display: block;
+      border-radius: 4px;
+    }
+    .repo-aside {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--paper-warm);
+      border: 1px solid var(--rule);
+      border-radius: 0 0 4px 4px;
+      padding: 0.875rem 1.25rem;
+      margin-top: -2px;
+    }
+    .repo-aside-label {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+    .repo-aside-link {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.04em;
+      color: var(--blue-deep);
+      text-decoration: none;
+      border: 1px solid var(--blue);
+      padding: 5px 14px;
+      border-radius: 100px;
+      transition: background 0.2s, color 0.2s;
+    }
+    .repo-aside-link:hover {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    /* ── ARTICLE BODY ── */
+    .post-body {
+      padding: 3.5rem 0 5rem;
+      border-top: 1px solid var(--rule);
+    }
+
+    /* Typography */
+    .post-body p {
+      font-size: 1.0625rem;
+      color: var(--ink-mid);
+      line-height: 1.85;
+      margin-bottom: 1.5rem;
+    }
+
+    .post-body h2 {
+      font-family: var(--serif);
+      font-size: 1.625rem;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin: 2.75rem 0 0.9rem;
+      line-height: 1.2;
+    }
+
+    .post-body h3 {
+      font-family: var(--serif);
+      font-size: 1.25rem;
+      color: var(--ink);
+      margin: 2.25rem 0 0.75rem;
+      font-style: italic;
+    }
+
+    .post-body a {
+      color: var(--blue);
+      text-decoration: underline;
+      text-decoration-color: var(--blue-light);
+      text-underline-offset: 3px;
+      transition: text-decoration-color 0.2s;
+    }
+    .post-body a:hover { text-decoration-color: var(--blue); }
+
+    .post-body strong { font-weight: 500; color: var(--ink); }
+    .post-body em { font-style: italic; }
+
+    .post-body ul, .post-body ol {
+      margin: 0 0 1.5rem 0;
+      padding-left: 1.5rem;
+      color: var(--ink-mid);
+      font-size: 1.0625rem;
+      line-height: 1.8;
+    }
+    .post-body li { margin-bottom: 0.4rem; }
+
+    .post-body blockquote {
+      border-left: 3px solid var(--blue);
+      margin: 2rem 0;
+      padding: 0.25rem 0 0.25rem 1.5rem;
+    }
+    .post-body blockquote p {
+      font-style: italic;
+      color: var(--ink-mid);
+      font-size: 1.125rem;
+    }
+
+    .post-body hr {
+      border: none;
+      border-top: 1px solid var(--rule);
+      margin: 3rem 0;
+    }
+
+    .post-body code {
+      font-family: var(--mono);
+      font-size: 0.875em;
+      background: var(--paper-warm);
+      border: 1px solid var(--rule);
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: var(--blue-deep);
+    }
+
+    /* Callout box */
+    .callout {
+      background: var(--blue-light);
+      border-left: 3px solid var(--blue);
+      border-radius: 0 4px 4px 0;
+      padding: 1.25rem 1.5rem;
+      margin: 2rem 0;
+    }
+    .callout p { color: var(--blue-deep); margin: 0; font-size: 1rem; }
+    .callout p + p { margin-top: 0.5rem; }
+
+    /* ── POST FOOTER ── */
+    .post-footer {
+      border-top: 1px solid var(--rule);
+      padding: 3rem 0 5rem;
+    }
+
+    .post-footer-label {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-bottom: 1.75rem;
+    }
+
+    .related-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+
+    .related-card {
+      background: var(--paper-warm);
+      padding: 1.25rem 1.5rem;
+      border-radius: 3px;
+      text-decoration: none;
+      border: 1px solid transparent;
+      transition: border-color 0.2s, background 0.2s;
+      display: block;
+    }
+    .related-card:hover { background: var(--blue-light); border-color: var(--blue); }
+
+    .related-date {
+      font-family: var(--mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-bottom: 0.4rem;
+    }
+
+    .related-title {
+      font-family: var(--serif);
+      font-size: 1.0625rem;
+      color: var(--ink);
+      line-height: 1.35;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--rule);
+      padding: 1.75rem 0;
+    }
+    footer .wrapper { display: flex; justify-content: space-between; align-items: center; }
+    .footer-copy { font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.08em; color: var(--ink-soft); }
+    .footer-motto { font-family: var(--body); font-size: 0.875rem; font-style: italic; color: var(--ink-soft); }
+
+    /* Scroll reveal */
+    .reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.7s ease, transform 0.7s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      body { cursor: auto; }
+      #cursor { display: none; }
+      .related-grid { grid-template-columns: 1fr; }
+      footer .wrapper { flex-direction: column; gap: 0.5rem; text-align: center; }
+      nav {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: var(--paper);
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 3rem;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.4s ease, visibility 0.4s;
+      }
+      header.menu-open nav {
+        opacity: 1;
+        visibility: visible;
+      }
+      nav a {
+        font-family: var(--serif);
+        font-size: 2rem;
+      }
+      #menu-toggle { display: block; }
+      footer .wrapper { flex-direction: column; gap: 0.5rem; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="cursor"></div>
+
+<header id="header">
+  <div class="wrapper">
+    <a href="/" class="wordmark">T. Nishimura</a>
+    <nav id="main-nav">
+      <a href="/#about">About</a>
+      <a href="/#work">Work</a>
+      <a href="/#writing">Writing</a>
+      <a href="/#connect">Say hi</a>
+    </nav>
+    <button id="menu-toggle" aria-label="Toggle menu" aria-controls="main-nav">
+      <span></span>
+      <span></span>
+    </button>
+  </div>
+</header>
+
+<section class="post-header">
+  <div class="wrapper--narrow">
+    <a href="/#writing" class="post-back">← Writing</a>
+
+    <div class="post-meta">
+      <span class="post-date">June 2026</span>
+      <span class="post-category">Open Source</span>
+    </div>
+
+    <h1 class="post-title">I Wanted a Free Screaming Frog. I Built a <em>Crawl Engine</em>.</h1>
+
+    <p class="post-subtitle">What started as a cost-cutting idea turned into an open-source crawler built natively around Claude and the MCP protocol. Some decisions made it harder. Others made it click.</p>
+  </div>
+</section>
+
+<div class="wrapper--narrow">
+  <div class="post-hero">
+    <img src="og-image.png" alt="Crawl Engine social card — a split image with a steel tower photograph on the left and the text 'CRAWL: a production-grade embeddable web crawler for TypeScript/Node.js' on a light blue background on the right" />
+    <aside class="repo-aside">
+      <span class="repo-aside-label">Open source · MIT License</span>
+      <a class="repo-aside-link" href="https://github.com/timothy-nishimura/crawl-engine" target="_blank" rel="noopener">View on GitHub →</a>
+    </aside>
+  </div>
+</div>
+
+<article class="post-body">
+  <div class="wrapper--narrow">
+
+    <p>I was looking at alternatives to a paid Screaming Frog license and got what I thought was a pretty bright idea. Build my own. How hard could it be?</p>
+
+    <p>The answer, predictably, is: harder than I expected, more interesting than I anticipated, and ultimately worth it. The result is <a href="https://github.com/timothy-nishimura/crawl-engine" target="_blank" rel="noopener">an open-source crawl engine</a> I'm releasing today - a TypeScript monorepo with a crawl core, an MCP server that exposes it as Claude tools, and a Chrome pipe module that handles JavaScript-rendered pages. It's production-hardened, MIT-licensed, and built to be extended.</p>
+
+    <p>This is the story of how it got designed the way it did.</p>
+
+    <h2>The F1 Model</h2>
+
+    <p>Early on I started thinking about the architecture the way Formula 1 teams think about their cars - not as one thing, but as three distinct layers: <strong>power unit, chassis, and livery</strong>. Each does a different job. Each can evolve independently. None of them should know too much about the others.</p>
+
+    <p>The <strong>power unit</strong> is the crawl engine core. It fetches pages, follows links, respects robots.txt, manages concurrency, deduplicates URLs, and hands you page snapshots. It has no opinion about what you're crawling or why. It doesn't know if you're auditing a site for SEO gaps, training a dataset, or mapping a competitor. That ignorance is intentional.</p>
+
+    <p>The <strong>chassis</strong> is the MCP server - the structural layer that mounts on top of the engine and makes it driveable. It defines the tool contracts: what a crawl call looks like, what comes back, what can fail. It's not branding, and it's not the engine - it's the scaffolding that connects them. Swap it out and you'd have a REST API or a CLI instead. The power unit wouldn't notice.</p>
+
+    <p>The <strong>livery</strong> is everything application-specific: domain heuristics, rate-limit decisions for particular hosts, dork recipe templates, extractor choices. These are the team colors. They say something about how you use the car, not about how the car works. The rule I enforced: if a behavior is application policy, it lives in the livery. If it's a crawl primitive, it belongs in the power unit.</p>
+
+    <p>This sounds obvious in retrospect. In practice it took real discipline. The temptation is to keep adding convenience to the engine - "let's add a special delay for search engines," "let's flag JS-gated domains at the core level." Every one of those is a livery decision trying to sneak into the power unit. I had to rip several out before release.</p>
+
+    <h2>The Chrome Pipe</h2>
+
+    <p>The most unconventional decision in the codebase is how JavaScript-rendered pages are handled. A lot of crawlers reach for Puppeteer or Playwright and spin up a headless browser. That works, but it adds infrastructure weight and its own fingerprinting surface.</p>
+
+    <p>This engine takes a different approach. The MCP server exposes a tool called <code>fetch_page_via_chrome_pipe</code> that delegates rendering to <a href="https://docs.claude.com/en/docs/agents-and-tools/claude-in-chrome" target="_blank" rel="noopener">Claude in Chrome</a> - the browser extension that lets Claude see and interact with your actual Chrome session. Claude navigates to the URL, captures the rendered HTML, and pipes it back. The crawl engine receives a full DOM snapshot, the same as it would from any other backend.</p>
+
+    <p>What you get: real browser rendering, your existing session cookies, and no headless browser to maintain. What this means for the architecture: the rendering backend is just another swappable module. The engine doesn't care whether a page arrived via <code>fetch()</code> or a Chrome pipe.</p>
+
+    <div class="callout">
+      <p>This pattern is genuinely new territory. Using Claude in Chrome as a first-class rendering backend - rather than a UI automation tool - opens up workflows that headless browsers can't replicate, particularly for sites that detect and block automated clients.</p>
+    </div>
+
+    <h2>Security by Default</h2>
+
+    <p>One thing I didn't want to compromise on: SSRF protection out of the box. It's easy to ship a crawler that, if pointed at a malicious URL, starts fetching <code>http://169.254.169.254/</code> - the AWS metadata endpoint, or other private network addresses. Most open-source crawlers leave this as an exercise for the operator.</p>
+
+    <p>Here it's built in at the transport layer using a custom <a href="https://undici.nodejs.org/" target="_blank" rel="noopener">undici</a> connector. Private IP ranges - loopback, link-local, RFC 1918 - are blocked before a connection is opened, not after. The default policy is <code>BLOCK_PRIVATE</code>. You can opt out, but you have to do it explicitly.</p>
+
+    <h2>What Surprised Me</h2>
+
+    <p>The MCP protocol turned out to be a better interface layer than I expected. I went in thinking of it as a way to expose tools to Claude. What I found is that the tool-call model forces you to define clean contracts: what goes in, what comes out, what can fail. That discipline made the whole module layer easier to reason about.</p>
+
+    <p>The hardest part wasn't the crawl logic. Queuing, deduplication, rate limiting, robots.txt parsing - all of that was relatively straightforward to get right. The hard part was the boundary enforcement. It's genuinely difficult to look at something like "should this domain heuristic live in core?" and make the right call consistently. I got it wrong several times.</p>
+
+    <p>The second hardest part was the Chrome pipe. Getting Claude in Chrome and the MCP server to coordinate correctly - the timing, the HTML capture format, the fallback behavior when Chrome isn't connected - took more iteration than I expected. It's stable now, but it earned that stability.</p>
+
+    <h2>What's in the Repo</h2>
+
+    <p>The public snapshot includes the engine core, the MCP server with a set of working tools (<code>crawl_site</code>, <code>fetch_page</code>, <code>fetch_api</code>, <code>extract_links</code>, <code>summarize_manifest</code>), the Chrome pipe module, extractors for SEO data, links, headings, images, and schema.org markup, and a dev container config so you can be up and running in a few minutes.</p>
+
+    <p>It's a TypeScript monorepo using npm workspaces. The test suite has full coverage of the core. There's a Dork Builder utility in the MCP module if you want to build structured search queries from templates. The architecture doc is in the README.</p>
+
+    <p>I built this because I needed it. I'm releasing it because the patterns - MCP-native crawling, Chrome-as-pipe rendering, SSRF protection by default - seem worth sharing. If you build something with it, I'd genuinely like to know.</p>
+
+    <p><a href="https://github.com/timothy-nishimura/crawl-engine" target="_blank" rel="noopener">github.com/timothy-nishimura/crawl-engine</a></p>
+
+  </div>
+</article>
+
+<section class="post-footer">
+  <div class="wrapper--narrow">
+    <div class="post-footer-label">More writing</div>
+    <div class="related-grid">
+      <a class="related-card" href="../my-ai-tool-has-the-most-boring-name-ever/">
+        <div class="related-date">May 2025</div>
+        <div class="related-title">My AI Tool Has the Most Boring Name Ever</div>
+      </a>
+      <a class="related-card" href="../french-vocabulary-chatgpt/">
+        <div class="related-date">May 2025</div>
+        <div class="related-title">How I Turned My French Vocabulary Chatbot Into a Custom GPT</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrapper">
+    <span class="footer-copy">© 2026 Timothy Nishimura</span>
+    <span class="footer-motto">Out of many, one.</span>
+  </div>
+</footer>
+
+<script>
+  const cursor = document.getElementById('cursor');
+  document.addEventListener('mousemove', e => {
+    cursor.style.left = e.clientX + 'px';
+    cursor.style.top = e.clientY + 'px';
+  });
+  document.querySelectorAll('a').forEach(el => {
+    el.addEventListener('mouseenter', () => cursor.classList.add('hover'));
+    el.addEventListener('mouseleave', () => cursor.classList.remove('hover'));
+  });
+  const header = document.getElementById('header');
+  const menuToggle = document.getElementById('menu-toggle');
+
+  window.addEventListener('scroll', () => {
+    header.classList.toggle('scrolled', window.scrollY > 40);
+  });
+
+  menuToggle.addEventListener('click', () => {
+    header.classList.toggle('menu-open');
+    document.body.style.overflow = header.classList.contains('menu-open') ? 'hidden' : '';
+  });
+
+  document.querySelectorAll('#main-nav a').forEach(link => {
+    link.addEventListener('click', () => {
+      header.classList.remove('menu-open');
+      document.body.style.overflow = '';
+    });
+  });
+
+  const reveals = document.querySelectorAll('.reveal');
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach((e, i) => {
+      if (e.isIntersecting) {
+        setTimeout(() => e.target.classList.add('visible'), i * 70);
+        obs.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+  reveals.forEach(el => obs.observe(el));
+</script>
+
+</body>
+</html>
